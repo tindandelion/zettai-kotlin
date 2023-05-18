@@ -55,7 +55,7 @@ fun startApplication(
     todoItems: List<String>
 ) {
     val lists = mapOf(User(user) to listOf(createList(listName, todoItems)))
-    val server = Zettai(lists).asServer(Jetty(8081)).start()
+    Zettai(lists).asServer(Jetty(8081)).start()
 }
 
 fun parseResponse(html: String): ToDoList {
