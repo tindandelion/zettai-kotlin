@@ -9,44 +9,53 @@ import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import kotlin.test.fail
 
+interface ScenarioActor {
+    val name: String
+}
+
+class ToDoListOwner(override val name: String) : ScenarioActor {
+    fun canSeeList(listName: String, items: List<String>) {
+        val expectedList = createList(listName, items)
+        val list = getToDoList(this.name, listName)
+        expectThat(list).isEqualTo(expectedList)
+    }
+
+
+    private fun getToDoList(userName: String, listName: String): ToDoList {
+        val client = JettyClient()
+        val request = Request(
+            Method.GET,
+            "http://localhost:8081/todo/${userName}/${listName}"
+        )
+        val response = client(request)
+        return if (response.status == Status.OK) parseResponse(response.body.toString())
+        else fail(response.toMessage())
+    }
+}
+
+private fun createList(listName: String, items: List<String>) =
+    ToDoList(ListName(listName), items.map(::ToDoItem))
+
 
 class SeeTodoListAT {
     @Test
     fun `List owners can see their lists`() {
-        val user = User("frank")
-        val listName = ListName("shopping")
-        val foodToBuy = listOf(
-            ToDoItem("carrots"),
-            ToDoItem("apples"),
-            ToDoItem("milk")
-        )
+        val listName = "shopping"
+        val foodToBuy = listOf("carrots", "apples", "milk")
+        val frank = ToDoListOwner("frank")
 
-        startApplication(user, listName, foodToBuy)
-
-        val list = getToDoList(user, listName)
-        expectThat(list.name).isEqualTo(listName)
-        expectThat(list.items).isEqualTo(foodToBuy)
+        startApplication(frank.name, listName, foodToBuy)
+        frank.canSeeList(listName, foodToBuy)
     }
 }
 
 fun startApplication(
-    user: User,
-    listName: ListName,
-    foodToBuy: List<ToDoItem>
+    user: String,
+    listName: String,
+    todoItems: List<String>
 ) {
-    val lists = mapOf(user to listOf(ToDoList(listName, foodToBuy)))
+    val lists = mapOf(User(user) to listOf(createList(listName, todoItems)))
     val server = Zettai(lists).asServer(Jetty(8081)).start()
-}
-
-fun getToDoList(user: User, listName: ListName): ToDoList {
-    val client = JettyClient()
-    val request = Request(
-        Method.GET,
-        "http://localhost:8081/todo/${user.name}/${listName.name}"
-    )
-    val response = client(request)
-    return if (response.status == Status.OK) parseResponse(response.body.toString())
-    else fail(response.toMessage())
 }
 
 fun parseResponse(html: String): ToDoList {
