@@ -9,7 +9,7 @@ phases:
       - export GRADLE_USER_HOME=`pwd`/.gradle
   build:
     commands:
-      - ./gradlew test
+      - ./gradlew test shadowJar
 artifacts:
   files:
     - "*-all.jar"
