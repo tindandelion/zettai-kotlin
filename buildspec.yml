@@ -9,7 +9,8 @@ phases:
       - export GRADLE_USER_HOME=`pwd`/.gradle
   build:
     commands:
-      - ./gradlew build test
+      - ./gradlew test
 artifacts:
   files:
-    - build/distributions/*.zip
+    - "*-all.jar"
+  base-directory: build/libs

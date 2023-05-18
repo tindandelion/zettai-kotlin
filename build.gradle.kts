@@ -1,4 +1,7 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
+    id("com.github.johnrengelman.shadow") version "7.1.0"
     kotlin("jvm") version "1.8.21"
     application
 }
@@ -18,6 +21,12 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("io.strikt:strikt-core:0.34.0")
     testImplementation("org.http4k:http4k-client-jetty")
+}
+
+tasks {
+    withType<ShadowJar> {
+        manifest.attributes["Main-Class"] = "MainKt"
+    }
 }
 
 tasks.test {
