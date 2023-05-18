@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+  pre_build:
+    commands:
+      - export GRADLE_USER_HOME=`pwd`/.gradle
+  build:
+    commands:
+      - ./gradlew build test
+artifacts:
+  files:
+    - build/distributions/*.zip
