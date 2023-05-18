@@ -4,16 +4,13 @@ phases:
   install:
     runtime-versions:
       java: corretto17
-  pre_build:
-    commands:
-      - export GRADLE_USER_HOME=`pwd`/.gradle
   build:
     commands:
-      - ./gradlew test shadowJar --no-daemon
+      - ./gradlew --no-daemon test shadowJar
 artifacts:
   files:
     - "*-all.jar"
   base-directory: build/libs
 cache:
   paths:
-    - '.gradle/**/*'
+    - '/root/.gradle/**/*'
