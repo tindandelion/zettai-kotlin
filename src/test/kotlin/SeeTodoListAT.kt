@@ -18,7 +18,7 @@ typealias Step = Actions.() -> Unit
 
 class ApplicationForAT(val client: HttpHandler, val server: AutoCloseable) :
     Actions {
-    override fun getToDoList(userName: String, listName: String): ToDoList? {
+    override fun getToDoList(userName: String, listName: String): ToDoList {
         val request = Request(Method.GET, "/todo/${userName}/${listName}")
         val response = client(request)
 
