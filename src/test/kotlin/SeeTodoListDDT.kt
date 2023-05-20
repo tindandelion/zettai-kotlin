@@ -50,9 +50,11 @@ class HttpActions : ZettaiActions {
             Request(Method.GET, "http://localhost:$zettaiPort/todo/${user.name}/${listName.name}")
         val response = client(request)
 
-        return if (response.status == Status.OK) parseResponse(response.body.toString())
-        else if (response.status == Status.NOT_FOUND) return null
-        else fail(response.toMessage())
+        return when (response.status) {
+            Status.OK -> parseResponse(response.body.toString())
+            Status.NOT_FOUND -> return null
+            else -> fail(response.toMessage())
+        }
     }
 
     override fun prepare(): DomainSetUp {
