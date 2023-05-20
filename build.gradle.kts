@@ -21,6 +21,8 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("io.strikt:strikt-core:0.34.0")
     testImplementation("org.http4k:http4k-client-jetty")
+    testImplementation("com.ubertob.pesticide:pesticide-core:1.6.6")
+
 }
 
 tasks {
