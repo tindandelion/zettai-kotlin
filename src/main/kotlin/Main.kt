@@ -6,7 +6,8 @@ import org.http4k.routing.routes
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
 
-private data class HtmlPage(val raw: String)
+
+private val BadRequest = Response(Status.BAD_REQUEST)
 
 class Zettai(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
@@ -18,21 +19,23 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
     override fun invoke(req: Request): Response = routes(req)
 
     @Suppress("UNUSED_PARAMETER")
-    private fun showHomepage(req: Request): Response {
-        val homePage = """
-        <html>
-            <body>
-                <h1>Zettai</h1>
-                <h2>Home page</h2>
-            </body>
-        </html>
-        """.trimIndent()
-        return Response(Status.OK).body(homePage)
-    }
+    private fun showHomepage(req: Request) =
+        Response(Status.OK).body(
+            """
+            <html>
+                <body>
+                    <h1>Zettai</h1>
+                    <h2>Home page</h2>
+                </body>
+            </html>
+            """.trimIndent()
+        )
 
     private fun addNewItem(request: Request): Response {
         val user = request.path("user")?.let(::User) ?: return Response(Status.BAD_REQUEST)
-        val listName = request.path("list")?.let(::ListName) ?: return Response(Status.BAD_REQUEST)
+        val listName = request.path("list")
+            ?.let { ListName.fromUntrusted(it) }
+            ?: return Response(Status.BAD_REQUEST)
         val item = request.form("itemname")
             ?.let { ToDoItem(it) }
             ?: return Response(Status.BAD_REQUEST)
@@ -46,40 +49,15 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
             } ?: Response(Status.NOT_FOUND)
     }
 
-    private fun showList(req: Request): Response =
-        req.let(::extractListData)
-            .let(::fetchListContent)
-            ?.let(::renderHtml)
+    private fun showList(req: Request): Response {
+        val user = req.path("user")?.let(::User) ?: return BadRequest
+        val list = req.path("list")?.let { ListName.fromUntrusted(it) } ?: return BadRequest
+
+        return hub.getList(user, list)
+            ?.let(::renderList)
             ?.let(::createResponse)
             ?: Response(Status.NOT_FOUND)
-
-    private fun extractListData(req: Request): Pair<User, ListName> {
-        val user = req.path("user").orEmpty()
-        val list = req.path("list").orEmpty()
-        return User(user) to ListName(list)
     }
-
-    private fun fetchListContent(listId: Pair<User, ListName>): ToDoList? {
-        val (user, listName) = listId
-        return hub.getList(user, listName)
-    }
-
-    private fun renderHtml(list: ToDoList): HtmlPage = HtmlPage(
-        """
-        <html>
-            <body>
-                <h1>Zettai</h1>
-                <h2>${list.name.name}</h2>
-                <table>
-                    <tbody>${renderItems(list.items)}</tbody>
-                </table>
-            </body>
-        </html>
-        """.trimIndent()
-    )
-
-    private fun renderItems(items: List<ToDoItem>): String =
-        items.joinToString("") { "<tr><td>${it.description}</td></tr>" }
 
     private fun createResponse(page: HtmlPage): Response =
         Response(Status.OK).body(page.raw)
@@ -87,7 +65,7 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
 
 fun main() {
     val items = listOf("write chapter", "insert code", "draw diagrams")
-    val list = ToDoList(ListName("book"), items.map(::ToDoItem))
+    val list = ToDoList(ListName.fromTrusted("book"), items.map(::ToDoItem))
     val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
     Zettai(ToDoListHub(MapListFetcher(lists))).asServer(Jetty(8080)).start()
 }

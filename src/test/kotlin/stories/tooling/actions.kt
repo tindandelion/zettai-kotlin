@@ -1,4 +1,4 @@
-package tooling
+package stories.tooling
 
 import ListName
 import MapListFetcher
@@ -6,6 +6,7 @@ import ToDoItem
 import ToDoList
 import ToDoListHub
 import ToDoListStore
+import ToDoStatus
 import User
 import Zettai
 import com.ubertob.pesticide.core.*
@@ -16,8 +17,11 @@ import org.http4k.core.Status
 import org.http4k.core.body.toBody
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import java.time.LocalDate
 import kotlin.test.fail
 
 interface ZettaiActions : DdtActions<DdtProtocol> {
@@ -40,7 +44,7 @@ class DomainOnlyActions : ZettaiActions {
         hub.addItemToList(user, listName, item)
 
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val newList = ToDoList(ListName(listName), items.map(::ToDoItem))
+        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
         lists[user] = mutableMapOf(newList.name to newList)
     }
 }
@@ -82,7 +86,7 @@ class HttpActions : ZettaiActions {
     }
 
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val newList = ToDoList(ListName(listName), items.map(::ToDoItem))
+        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
         lists[user] = mutableMapOf(newList.name to newList)
     }
 
@@ -103,25 +107,31 @@ class HttpActions : ZettaiActions {
     private fun appendHostTo(listUrl: String): String = "http://localhost:$zettaiPort" + listUrl
 
     private fun parseResponse(html: String): ToDoList {
-        val listName = ListName(extractListName(html))
-        val items = extractItemDescriptions(html).map(::ToDoItem).toList()
+        val document = Jsoup.parse(html)
+        val listName = ListName.fromTrusted(extractListName(document))
+        val items = extractItemsFromPage(document)
         return ToDoList(listName, items)
     }
 
-    private fun extractItemDescriptions(html: String): Sequence<String> {
-        val regex = "<td>.*?<".toRegex()
-        return regex.findAll(html)
-            .map { it.value.substringAfter("<td>").dropLast(1) }
-    }
+    private fun extractItemsFromPage(doc: Document): List<ToDoItem> =
+        doc.select("tr")
+            .filter { el -> el.select("td").size == 3 }
+            .map {
+                val columns = it.select("td")
+                ToDoItem(
+                    description = columns[0].text().orEmpty(),
+                    dueDate = columns[1].text().toIsoLocalDate(),
+                    status = columns[2].text().orEmpty().toStatus(),
+                )
+            }
 
-    private fun extractListName(html: String): String {
-        val regex = "<h2>.*<".toRegex()
-        return regex.find(html)
-            ?.value
-            ?.substringAfter("<h2>")
-            ?.dropLast(1)
-            .orEmpty()
-    }
+    private fun extractListName(doc: Document): String =
+        doc.select("h2").text()
+
+    private fun String?.toIsoLocalDate(): LocalDate? =
+        if (isNullOrBlank()) null else LocalDate.parse(this)
+
+    private fun String.toStatus(): ToDoStatus = ToDoStatus.valueOf(this)
 }
 
 val allActions = setOf(DomainOnlyActions(), HttpActions())

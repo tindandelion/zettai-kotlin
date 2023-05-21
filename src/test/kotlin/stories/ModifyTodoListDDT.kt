@@ -1,7 +1,9 @@
+package stories
+
 import com.ubertob.pesticide.core.DDT
-import tooling.ToDoListOwner
-import tooling.ZettaiDDT
-import tooling.allActions
+import stories.tooling.ToDoListOwner
+import stories.tooling.ZettaiDDT
+import stories.tooling.allActions
 
 class ModifyTodoListDDT : ZettaiDDT(allActions) {
     val ann by NamedActor(::ToDoListOwner)

@@ -1,4 +1,4 @@
-package tooling
+package stories.tooling
 
 import ListName
 import ToDoItem
@@ -19,7 +19,7 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
         listName: String,
         expectedItems: List<String>
     ) = step(listName, expectedItems) {
-        val list = getToDoList(user, ListName(listName))
+        val list = getToDoList(user, ListName.fromTrusted(listName))
         expectThat(list)
             .isNotNull()
             .itemNames
@@ -27,13 +27,13 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
     }
 
     fun `cannot see #listname`(listName: String) = step(listName) {
-        val list = getToDoList(user, ListName(listName))
+        val list = getToDoList(user, ListName.fromTrusted(listName))
         expectThat(list).isNull()
     }
 
     fun `can add #item to #listname`(itemDesc: String, listName: String) =
         step(itemDesc, listName) {
-            val updatedList = addListItem(user, ListName(listName), ToDoItem(itemDesc))
+            val updatedList = addListItem(user, ListName.fromTrusted(listName), ToDoItem(itemDesc))
             expectThat(updatedList)
                 .isNotNull()
                 .itemNames
@@ -42,7 +42,7 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
 
     fun `can not add #item to #listname`(itemDesc: String, listName: String) =
         step(itemDesc, listName) {
-            val resultList = addListItem(user, ListName(listName), ToDoItem(itemDesc))
+            val resultList = addListItem(user, ListName.fromTrusted(listName), ToDoItem(itemDesc))
             expectThat(resultList).isNull()
         }
 
