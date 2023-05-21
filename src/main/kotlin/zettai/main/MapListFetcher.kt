@@ -1,3 +1,10 @@
+package zettai.main
+
+import zettai.core.ListName
+import zettai.core.ToDoList
+import zettai.core.ToDoListUpdatableFetcher
+import zettai.core.User
+
 typealias ToDoListStore = MutableMap<User, MutableMap<ListName, ToDoList>>
 
 class MapListFetcher(private val store: ToDoListStore) : ToDoListUpdatableFetcher {

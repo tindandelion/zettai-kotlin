@@ -1,6 +1,6 @@
 package unit
 
-import ListName
+import zettai.core.ListName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo

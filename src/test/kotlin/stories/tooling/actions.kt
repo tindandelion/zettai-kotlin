@@ -1,14 +1,5 @@
 package stories.tooling
 
-import ListName
-import MapListFetcher
-import ToDoItem
-import ToDoList
-import ToDoListHub
-import ToDoListStore
-import ToDoStatus
-import User
-import Zettai
 import com.ubertob.pesticide.core.*
 import org.http4k.client.JettyClient
 import org.http4k.core.Method
@@ -21,6 +12,10 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import zettai.core.*
+import zettai.main.MapListFetcher
+import zettai.main.ToDoListStore
+import zettai.main.ZettaiHttpServer
 import java.time.LocalDate
 import kotlin.test.fail
 
@@ -54,7 +49,7 @@ class HttpActions : ZettaiActions {
     private val hub = ToDoListHub(MapListFetcher(lists))
 
     val zettaiPort = 8081
-    val server = Zettai(hub).asServer(Jetty(zettaiPort))
+    val server = ZettaiHttpServer(hub).asServer(Jetty(zettaiPort))
     val client = JettyClient()
 
     override val protocol: DdtProtocol = Http("local")

@@ -1,9 +1,9 @@
 package stories.tooling
 
-import ListName
-import ToDoItem
-import ToDoList
-import User
+import zettai.core.ListName
+import zettai.core.ToDoItem
+import zettai.core.ToDoList
+import zettai.core.User
 import com.ubertob.pesticide.core.DdtActor
 import strikt.api.Assertion
 import strikt.api.expectThat

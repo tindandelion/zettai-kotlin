@@ -1,3 +1,5 @@
+package zettai.main
+
 import org.http4k.core.*
 import org.http4k.core.body.form
 import org.http4k.routing.bind
@@ -5,11 +7,17 @@ import org.http4k.routing.path
 import org.http4k.routing.routes
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
+import zettai.core.*
 
 
-private val BadRequest = Response(Status.BAD_REQUEST)
+object Responses {
+    val badRequest = Response(Status.BAD_REQUEST)
+    val notFound = Response(Status.NOT_FOUND)
+    fun seeOther(location: String) = Response(Status.SEE_OTHER).header("Location", location)
+    fun ok(body: String) = Response(Status.OK).body(body)
+}
 
-class Zettai(private val hub: ZettaiHub) : HttpHandler {
+class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
         "/" bind Method.GET to ::showHomepage,
         "/todo/{user}/{list}" bind Method.GET to ::showList,
@@ -32,41 +40,34 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
         )
 
     private fun addNewItem(request: Request): Response {
-        val user = request.path("user")?.let(::User) ?: return Response(Status.BAD_REQUEST)
+        val user = request.path("user")?.let(::User) ?: return Responses.badRequest
         val listName = request.path("list")
             ?.let { ListName.fromUntrusted(it) }
-            ?: return Response(Status.BAD_REQUEST)
+            ?: return Responses.badRequest
         val item = request.form("itemname")
             ?.let { ToDoItem(it) }
-            ?: return Response(Status.BAD_REQUEST)
+            ?: return Responses.badRequest
 
         return hub.addItemToList(user, listName, item)
-            ?.let {
-                Response(Status.SEE_OTHER).header(
-                    "Location",
-                    "/todo/${user.name}/${it.name.name}"
-                )
-            } ?: Response(Status.NOT_FOUND)
+            ?.let { Responses.seeOther("/todo/${user.name}/${it.name.name}") }
+            ?: Responses.notFound
     }
 
     private fun showList(req: Request): Response {
-        val user = req.path("user")?.let(::User) ?: return BadRequest
-        val list = req.path("list")?.let { ListName.fromUntrusted(it) } ?: return BadRequest
+        val user = req.path("user")?.let(::User) ?: return Responses.badRequest
+        val list =
+            req.path("list")?.let { ListName.fromUntrusted(it) } ?: return Responses.badRequest
 
         return hub.getList(user, list)
             ?.let(::renderList)
-            ?.let(::createResponse)
-            ?: Response(Status.NOT_FOUND)
+            ?.let { Responses.ok(it.raw) }
+            ?: Responses.notFound
     }
-
-    private fun createResponse(page: HtmlPage): Response =
-        Response(Status.OK).body(page.raw)
 }
 
 fun main() {
     val items = listOf("write chapter", "insert code", "draw diagrams")
     val list = ToDoList(ListName.fromTrusted("book"), items.map(::ToDoItem))
     val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
-    Zettai(ToDoListHub(MapListFetcher(lists))).asServer(Jetty(8080)).start()
+    ZettaiHttpServer(ToDoListHub(MapListFetcher(lists))).asServer(Jetty(8080)).start()
 }
-
