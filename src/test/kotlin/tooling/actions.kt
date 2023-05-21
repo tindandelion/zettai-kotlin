@@ -1,9 +1,11 @@
 package tooling
 
 import ListName
+import MapListFetcher
 import ToDoItem
 import ToDoList
 import ToDoListHub
+import ToDoListStore
 import User
 import Zettai
 import com.ubertob.pesticide.core.*
@@ -11,18 +13,22 @@ import org.http4k.client.JettyClient
 import org.http4k.core.Method
 import org.http4k.core.Request
 import org.http4k.core.Status
+import org.http4k.core.body.toBody
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
+import strikt.api.expectThat
+import strikt.assertions.isEqualTo
 import kotlin.test.fail
 
 interface ZettaiActions : DdtActions<DdtProtocol> {
     fun getToDoList(user: User, listName: ListName): ToDoList?
+    fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList?
     fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>)
 }
 
 class DomainOnlyActions : ZettaiActions {
-    private val lists: MutableMap<User, List<ToDoList>> = mutableMapOf()
-    private val hub = ToDoListHub(lists)
+    private val lists: ToDoListStore = mutableMapOf()
+    private val hub = ToDoListHub(MapListFetcher(lists))
 
     override val protocol: DdtProtocol = DomainOnly
     override fun prepare(): DomainSetUp = Ready
@@ -30,15 +36,18 @@ class DomainOnlyActions : ZettaiActions {
     override fun getToDoList(user: User, listName: ListName): ToDoList? =
         hub.getList(user, listName)
 
+    override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? =
+        hub.addItemToList(user, listName, item)
+
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
         val newList = ToDoList(ListName(listName), items.map(::ToDoItem))
-        lists[user] = listOf(newList)
+        lists[user] = mutableMapOf(newList.name to newList)
     }
 }
 
 class HttpActions : ZettaiActions {
-    private val lists: MutableMap<User, List<ToDoList>> = mutableMapOf()
-    private val hub = ToDoListHub(lists)
+    private val lists: ToDoListStore = mutableMapOf()
+    private val hub = ToDoListHub(MapListFetcher(lists))
 
     val zettaiPort = 8081
     val server = Zettai(hub).asServer(Jetty(zettaiPort))
@@ -46,9 +55,42 @@ class HttpActions : ZettaiActions {
 
     override val protocol: DdtProtocol = Http("local")
 
+    override fun prepare(): DomainSetUp {
+        server.start()
+        return Ready
+    }
+
+    override fun tearDown(): HttpActions = also { server.stop() }
+
     override fun getToDoList(user: User, listName: ListName): ToDoList? {
-        val request =
-            Request(Method.GET, "http://localhost:$zettaiPort/todo/${user.name}/${listName.name}")
+        return fetchListFromUrl("/todo/${user.name}/${listName.name}")
+    }
+
+    override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {
+        val formData = listOf(
+            "itemname" to item.description,
+            "itemdue" to item.dueDate?.toString()
+        )
+        val request = Request(Method.POST, todoListUrl(user, listName)).body(formData.toBody())
+
+        val response = client(request)
+        if (response.status == Status.NOT_FOUND) return null
+
+        expectThat(response.status).isEqualTo(Status.SEE_OTHER)
+        val listUrl = response.header("Location") ?: fail("List url is not found from the response")
+        return fetchListFromUrl(listUrl) ?: fail("List ${listName.name} not found")
+    }
+
+    override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
+        val newList = ToDoList(ListName(listName), items.map(::ToDoItem))
+        lists[user] = mutableMapOf(newList.name to newList)
+    }
+
+    private fun todoListUrl(user: User, listName: ListName) =
+        "http://localhost:$zettaiPort/todo/${user.name}/${listName.name}"
+
+    private fun fetchListFromUrl(listUrl: String): ToDoList? {
+        val request = Request(Method.GET, appendHostTo(listUrl))
         val response = client(request)
 
         return when (response.status) {
@@ -58,17 +100,7 @@ class HttpActions : ZettaiActions {
         }
     }
 
-    override fun prepare(): DomainSetUp {
-        server.start()
-        return Ready
-    }
-
-    override fun tearDown(): HttpActions = also { server.stop() }
-
-    override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val newList = ToDoList(ListName(listName), items.map(::ToDoItem))
-        lists[user] = listOf(newList)
-    }
+    private fun appendHostTo(listUrl: String): String = "http://localhost:$zettaiPort" + listUrl
 
     private fun parseResponse(html: String): ToDoList {
         val listName = ListName(extractListName(html))

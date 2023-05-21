@@ -1,4 +1,5 @@
 import org.http4k.core.*
+import org.http4k.core.body.form
 import org.http4k.routing.bind
 import org.http4k.routing.path
 import org.http4k.routing.routes
@@ -10,9 +11,9 @@ private data class HtmlPage(val raw: String)
 class Zettai(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
         "/" bind Method.GET to ::showHomepage,
-        "/todo/{user}/{list}" bind Method.GET to ::showList
+        "/todo/{user}/{list}" bind Method.GET to ::showList,
+        "/todo/{user}/{list}" bind Method.POST to ::addNewItem,
     )
-
 
     override fun invoke(req: Request): Response = routes(req)
 
@@ -27,6 +28,22 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
         </html>
         """.trimIndent()
         return Response(Status.OK).body(homePage)
+    }
+
+    private fun addNewItem(request: Request): Response {
+        val user = request.path("user")?.let(::User) ?: return Response(Status.BAD_REQUEST)
+        val listName = request.path("list")?.let(::ListName) ?: return Response(Status.BAD_REQUEST)
+        val item = request.form("itemname")
+            ?.let { ToDoItem(it) }
+            ?: return Response(Status.BAD_REQUEST)
+
+        return hub.addItemToList(user, listName, item)
+            ?.let {
+                Response(Status.SEE_OTHER).header(
+                    "Location",
+                    "/todo/${user.name}/${it.name.name}"
+                )
+            } ?: Response(Status.NOT_FOUND)
     }
 
     private fun showList(req: Request): Response =
@@ -71,7 +88,7 @@ class Zettai(private val hub: ZettaiHub) : HttpHandler {
 fun main() {
     val items = listOf("write chapter", "insert code", "draw diagrams")
     val list = ToDoList(ListName("book"), items.map(::ToDoItem))
-    val lists = mapOf(User("uberto") to listOf(list))
-    Zettai(ToDoListHub(lists)).asServer(Jetty(8080)).start()
+    val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
+    Zettai(ToDoListHub(MapListFetcher(lists))).asServer(Jetty(8080)).start()
 }
 
