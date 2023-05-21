@@ -3,7 +3,7 @@ import java.time.LocalDate
 
 data class User(val name: String)
 
-data class ListName private constructor(val name: String) {
+data class ListName internal constructor(val name: String) {
     companion object {
         private val validNamePattern = Regex(pattern = "[A-Za-z0-9-]+")
         private val String.hasValidLength: Boolean
