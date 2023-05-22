@@ -18,6 +18,9 @@ dependencies {
     implementation("org.http4k:http4k-core")
     implementation("org.http4k:http4k-server-jetty")
 
+    implementation("com.amazonaws:aws-lambda-java-core:1.2.1")
+    implementation("com.amazonaws:aws-lambda-java-events:3.11.0")
+
     testImplementation(kotlin("test"))
     testImplementation("io.strikt:strikt-core:0.34.0")
     testImplementation("org.http4k:http4k-client-jetty")
