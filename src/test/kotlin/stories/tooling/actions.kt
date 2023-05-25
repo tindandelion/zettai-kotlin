@@ -97,8 +97,9 @@ class HttpActions : InMemoryListActions() {
     override fun allUserLists(user: User): List<ListName> {
         val request = Request(Method.GET, withHost("/todo/${user.name}"))
         val response = client(request)
+       
         expectThat(response.status).isEqualTo(Status.OK)
-        TODO("Parse the list")
+        return Body.auto<List<ListName>>().toLens().invoke(response)
     }
 
     override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {

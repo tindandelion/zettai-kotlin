@@ -63,8 +63,13 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     }
 
     private fun getUserLists(request: Request): Response {
-        val user = request.extractUser() ?: Responses.badRequest
-        return Response(Status.OK)
+        val user = request.extractUser() ?: return Responses.badRequest
+        return hub.getUserLists(user)
+            ?.let {
+                Body.auto<List<ListName>>()
+                    .toLens()
+                    .inject(it, Response(Status.OK))
+            } ?: Responses.notFound
     }
 
     private fun Request.extractUser(): User? = path("user")?.let(::User)
