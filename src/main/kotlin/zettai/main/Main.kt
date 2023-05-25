@@ -15,7 +15,6 @@ object Responses {
     val badRequest = Response(Status.BAD_REQUEST)
     val notFound = Response(Status.NOT_FOUND)
     fun seeOther(location: String) = Response(Status.SEE_OTHER).header("Location", location)
-    fun ok(body: String) = Response(Status.OK).body(body)
 }
 
 class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
@@ -59,8 +58,7 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
             req.path("list")?.let { ListName.fromUntrusted(it) } ?: return Responses.badRequest
 
         return hub.getList(user, list)
-            ?.let(::renderList)
-            ?.let { Responses.ok(it.raw) }
+            ?.let { Body.auto<ToDoList>().toLens().inject(it, Response(Status.OK)) }
             ?: Responses.notFound
     }
 

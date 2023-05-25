@@ -2,10 +2,7 @@ package stories.tooling
 
 import com.ubertob.pesticide.core.*
 import org.http4k.client.JettyClient
-import org.http4k.core.Body
-import org.http4k.core.Method
-import org.http4k.core.Request
-import org.http4k.core.Status
+import org.http4k.core.*
 import org.http4k.format.Jackson.auto
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
@@ -121,10 +118,14 @@ class HttpActions : InMemoryListActions() {
         val response = client(request)
 
         return when (response.status) {
-            Status.OK -> parseResponse(response.body.toString())
+            Status.OK -> parseResponseJson(response)
             Status.NOT_FOUND -> return null
             else -> fail(response.toMessage())
         }
+    }
+
+    private fun parseResponseJson(response: Response): ToDoList {
+        return Body.auto<ToDoList>().toLens().invoke(response)
     }
 
     private fun appendHostTo(listUrl: String): String = "http://localhost:$zettaiPort" + listUrl
