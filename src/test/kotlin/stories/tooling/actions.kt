@@ -1,7 +1,6 @@
 package stories.tooling
 
 import com.ubertob.pesticide.core.*
-import kotlinx.serialization.Serializable
 import org.http4k.client.JettyClient
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -64,8 +63,6 @@ class DomainOnlyActions : InMemoryListActions() {
         hub.getUserLists(user) ?: fail("User not found: ${user.name}")
 }
 
-@Serializable
-data class AddItemCommand(val itemName: String)
 
 class HttpActions : InMemoryListActions() {
     val zettaiPort = 8081
