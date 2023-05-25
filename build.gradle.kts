@@ -17,6 +17,7 @@ dependencies {
     implementation(platform("org.http4k:http4k-bom:4.44.0.0"))
     implementation("org.http4k:http4k-core")
     implementation("org.http4k:http4k-server-jetty")
+    implementation("org.http4k:http4k-format-kotlinx-serialization")
 
     implementation("com.amazonaws:aws-lambda-java-core:1.2.1")
     implementation("com.amazonaws:aws-lambda-java-events:3.11.0")

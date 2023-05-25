@@ -3,12 +3,14 @@ package zettai.core
 interface ZettaiHub {
     fun getList(user: User, listName: ListName): ToDoList?
     fun addItemToList(user: User, listName: ListName, item: ToDoItem): ToDoList?
+    fun getUserLists(user: User): List<ListName>?
 }
 
 typealias ToDoListFetcher = (User, ListName) -> ToDoList?
 
 interface ToDoListUpdatableFetcher : ToDoListFetcher {
     fun assignListToUser(user: User, list: ToDoList): ToDoList?
+    fun getAll(user: User): List<ListName>?
 }
 
 class ToDoListHub(private val fetcher: ToDoListUpdatableFetcher) : ZettaiHub {
@@ -19,4 +21,8 @@ class ToDoListHub(private val fetcher: ToDoListUpdatableFetcher) : ZettaiHub {
             val newList = addItem(item)
             fetcher.assignListToUser(user, newList)
         }
+
+    override fun getUserLists(user: User): List<ListName>? {
+        return fetcher.getAll(user)
+    }
 }

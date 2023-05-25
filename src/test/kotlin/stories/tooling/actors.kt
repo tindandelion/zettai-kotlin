@@ -1,16 +1,13 @@
 package stories.tooling
 
+import com.ubertob.pesticide.core.DdtActor
+import strikt.api.Assertion
+import strikt.api.expectThat
+import strikt.assertions.*
 import zettai.core.ListName
 import zettai.core.ToDoItem
 import zettai.core.ToDoList
 import zettai.core.User
-import com.ubertob.pesticide.core.DdtActor
-import strikt.api.Assertion
-import strikt.api.expectThat
-import strikt.assertions.contains
-import strikt.assertions.containsExactlyInAnyOrder
-import strikt.assertions.isNotNull
-import strikt.assertions.isNull
 
 data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() {
     val user = User(name)
@@ -45,6 +42,16 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
             val resultList = addListItem(user, ListName.fromTrusted(listName), ToDoItem(itemDesc))
             expectThat(resultList).isNull()
         }
+
+    fun `can not see any lists`() = step {
+        val lists = allUserLists(user)
+        expectThat(lists).isEmpty()
+    }
+
+    fun `can see the lists #listNames`(listNames: Set<String>) = step(listNames) {
+        val lists = allUserLists(user)
+        expectThat(lists).map { it.name }.containsExactly(listNames)
+    }
 
     private val Assertion.Builder<ToDoList>.itemNames
         get() = get { items.map { it.description } }

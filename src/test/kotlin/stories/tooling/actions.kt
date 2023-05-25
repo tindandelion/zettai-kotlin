@@ -1,6 +1,7 @@
 package stories.tooling
 
 import com.ubertob.pesticide.core.*
+import kotlinx.serialization.Serializable
 import org.http4k.client.JettyClient
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -22,13 +23,34 @@ import kotlin.test.fail
 interface ZettaiActions : DdtActions<DdtProtocol> {
     fun getToDoList(user: User, listName: ListName): ToDoList?
     fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList?
+    fun allUserLists(user: User): List<ListName>
+
+    fun ToDoListOwner.`starts with no lists`()
     fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>)
+    fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>)
 }
 
-class DomainOnlyActions : ZettaiActions {
+abstract class InMemoryListActions : ZettaiActions {
     private val lists: ToDoListStore = mutableMapOf()
-    private val hub = ToDoListHub(MapListFetcher(lists))
+    protected val hub = ToDoListHub(MapListFetcher(lists))
 
+    override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
+        val userLists = lists[user] ?: mutableMapOf()
+        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
+        userLists[newList.name] = newList
+        lists[user] = userLists
+    }
+
+    override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {
+        expectedLists.forEach { (listName, items) -> `starts with a list`(listName, items) }
+    }
+
+    override fun ToDoListOwner.`starts with no lists`() {
+        lists[user] = mutableMapOf()
+    }
+}
+
+class DomainOnlyActions : InMemoryListActions() {
     override val protocol: DdtProtocol = DomainOnly
     override fun prepare(): DomainSetUp = Ready
 
@@ -38,16 +60,14 @@ class DomainOnlyActions : ZettaiActions {
     override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? =
         hub.addItemToList(user, listName, item)
 
-    override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
-        lists[user] = mutableMapOf(newList.name to newList)
-    }
+    override fun allUserLists(user: User): List<ListName> =
+        hub.getUserLists(user) ?: fail("User not found: ${user.name}")
 }
 
-class HttpActions : ZettaiActions {
-    private val lists: ToDoListStore = mutableMapOf()
-    private val hub = ToDoListHub(MapListFetcher(lists))
+@Serializable
+data class AddItemCommand(val itemName: String)
 
+class HttpActions : InMemoryListActions() {
     val zettaiPort = 8081
     val server = ZettaiHttpServer(hub).asServer(Jetty(zettaiPort))
     val client = JettyClient()
@@ -80,13 +100,21 @@ class HttpActions : ZettaiActions {
         return fetchListFromUrl(listUrl) ?: fail("List ${listName.name} not found")
     }
 
-    override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
-        lists[user] = mutableMapOf(newList.name to newList)
+    override fun allUserLists(user: User): List<ListName> {
+        val request = Request(Method.GET, withHost("/todo/${user.name}"))
+        val response = client(request)
+        expectThat(response.status).isEqualTo(Status.OK)
+        TODO("Parse the list")
     }
 
+    override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {
+        expectedLists.forEach { (listName, items) -> `starts with a list`(listName, items) }
+    }
+
+    private fun withHost(url: String) = "http://localhost:$zettaiPort$url"
+
     private fun todoListUrl(user: User, listName: ListName) =
-        "http://localhost:$zettaiPort/todo/${user.name}/${listName.name}"
+        withHost("/todo/${user.name}/${listName.name}")
 
     private fun fetchListFromUrl(listUrl: String): ToDoList? {
         val request = Request(Method.GET, appendHostTo(listUrl))

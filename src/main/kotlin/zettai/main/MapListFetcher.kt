@@ -17,4 +17,6 @@ class MapListFetcher(private val store: ToDoListStore) : ToDoListUpdatableFetche
             listMap.apply { put(list.name, list) }
         }?.let { list }
     }
+
+    override fun getAll(user: User): List<ListName>? = store[user]?.keys?.toList()
 }

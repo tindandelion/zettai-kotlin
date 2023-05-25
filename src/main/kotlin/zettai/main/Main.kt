@@ -19,17 +19,16 @@ object Responses {
 
 class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
-        "/" bind Method.GET to ::showHomepage,
+        "/" bind Method.GET to { showHomepage() },
         "/todo/{user}/{list}" bind Method.GET to ::showList,
         "/todo/{user}/{list}" bind Method.POST to ::addNewItem,
+        "/todo/{user}" bind Method.GET to ::getUserLists
     )
 
     override fun invoke(req: Request): Response = routes(req)
 
-    @Suppress("UNUSED_PARAMETER")
-    private fun showHomepage(req: Request) =
-        Response(Status.OK).body(
-            """
+    private fun showHomepage() = Response(Status.OK).body(
+        """
             <html>
                 <body>
                     <h1>Zettai</h1>
@@ -37,10 +36,10 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
                 </body>
             </html>
             """.trimIndent()
-        )
+    )
 
     private fun addNewItem(request: Request): Response {
-        val user = request.path("user")?.let(::User) ?: return Responses.badRequest
+        val user = request.extractUser() ?: return Responses.badRequest
         val listName = request.path("list")
             ?.let { ListName.fromUntrusted(it) }
             ?: return Responses.badRequest
@@ -54,7 +53,7 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     }
 
     private fun showList(req: Request): Response {
-        val user = req.path("user")?.let(::User) ?: return Responses.badRequest
+        val user = req.extractUser() ?: return Responses.badRequest
         val list =
             req.path("list")?.let { ListName.fromUntrusted(it) } ?: return Responses.badRequest
 
@@ -63,6 +62,13 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
             ?.let { Responses.ok(it.raw) }
             ?: Responses.notFound
     }
+
+    private fun getUserLists(request: Request): Response {
+        val user = request.extractUser() ?: Responses.badRequest
+        return Response(Status.OK)
+    }
+
+    private fun Request.extractUser(): User? = path("user")?.let(::User)
 }
 
 fun main() {
