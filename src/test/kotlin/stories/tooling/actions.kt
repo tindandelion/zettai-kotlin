@@ -2,10 +2,11 @@ package stories.tooling
 
 import com.ubertob.pesticide.core.*
 import org.http4k.client.JettyClient
+import org.http4k.core.Body
 import org.http4k.core.Method
 import org.http4k.core.Request
 import org.http4k.core.Status
-import org.http4k.core.body.toBody
+import org.http4k.format.Jackson.auto
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
 import org.jsoup.Jsoup
@@ -16,6 +17,7 @@ import zettai.core.*
 import zettai.main.MapListFetcher
 import zettai.main.ToDoListStore
 import zettai.main.ZettaiHttpServer
+import zettai.main.json.AddItemRequest
 import java.time.LocalDate
 import kotlin.test.fail
 
@@ -83,11 +85,12 @@ class HttpActions : InMemoryListActions() {
     }
 
     override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {
-        val formData = listOf(
-            "itemname" to item.description,
-            "itemdue" to item.dueDate?.toString()
-        )
-        val request = Request(Method.POST, todoListUrl(user, listName)).body(formData.toBody())
+        val request = Body.auto<AddItemRequest>()
+            .toLens()
+            .inject(
+                AddItemRequest(item.description),
+                Request(Method.POST, todoListUrl(user, listName))
+            )
 
         val response = client(request)
         if (response.status == Status.NOT_FOUND) return null

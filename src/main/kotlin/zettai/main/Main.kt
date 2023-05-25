@@ -1,13 +1,14 @@
 package zettai.main
 
 import org.http4k.core.*
-import org.http4k.core.body.form
+import org.http4k.format.Jackson.auto
 import org.http4k.routing.bind
 import org.http4k.routing.path
 import org.http4k.routing.routes
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
 import zettai.core.*
+import zettai.main.json.AddItemRequest
 
 
 object Responses {
@@ -43,11 +44,11 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
         val listName = request.path("list")
             ?.let { ListName.fromUntrusted(it) }
             ?: return Responses.badRequest
-        val item = request.form("itemname")
-            ?.let { ToDoItem(it) }
-            ?: return Responses.badRequest
+        val body = Body.auto<AddItemRequest>()
+            .toLens()
+            .invoke(request)
 
-        return hub.addItemToList(user, listName, item)
+        return hub.addItemToList(user, listName, ToDoItem(body.itemName))
             ?.let { Responses.seeOther("/todo/${user.name}/${it.name.name}") }
             ?: Responses.notFound
     }
