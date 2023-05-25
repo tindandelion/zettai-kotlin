@@ -6,8 +6,6 @@ import org.http4k.core.*
 import org.http4k.format.Jackson.auto
 import org.http4k.server.Jetty
 import org.http4k.server.asServer
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import zettai.core.*
@@ -15,7 +13,6 @@ import zettai.main.MapListFetcher
 import zettai.main.ToDoListStore
 import zettai.main.ZettaiHttpServer
 import zettai.main.json.AddItemRequest
-import java.time.LocalDate
 import kotlin.test.fail
 
 interface ZettaiActions : DdtActions<DdtProtocol> {
@@ -130,32 +127,6 @@ class HttpActions : InMemoryListActions() {
 
     private fun appendHostTo(listUrl: String): String = "http://localhost:$zettaiPort" + listUrl
 
-    private fun parseResponse(html: String): ToDoList {
-        val document = Jsoup.parse(html)
-        val listName = ListName.fromTrusted(extractListName(document))
-        val items = extractItemsFromPage(document)
-        return ToDoList(listName, items)
-    }
-
-    private fun extractItemsFromPage(doc: Document): List<ToDoItem> =
-        doc.select("tr")
-            .filter { el -> el.select("td").size == 3 }
-            .map {
-                val columns = it.select("td")
-                ToDoItem(
-                    description = columns[0].text().orEmpty(),
-                    dueDate = columns[1].text().toIsoLocalDate(),
-                    status = columns[2].text().orEmpty().toStatus(),
-                )
-            }
-
-    private fun extractListName(doc: Document): String =
-        doc.select("h2").text()
-
-    private fun String?.toIsoLocalDate(): LocalDate? =
-        if (isNullOrBlank()) null else LocalDate.parse(this)
-
-    private fun String.toStatus(): ToDoStatus = ToDoStatus.valueOf(this)
 }
 
 val allActions = setOf(DomainOnlyActions(), HttpActions())

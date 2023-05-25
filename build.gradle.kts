@@ -26,7 +26,6 @@ dependencies {
     testImplementation("io.strikt:strikt-core:0.34.0")
     testImplementation("org.http4k:http4k-client-jetty")
     testImplementation("com.ubertob.pesticide:pesticide-core:1.6.6")
-    testImplementation("org.jsoup:jsoup:1.16.1")
 }
 
 tasks {
@@ -40,7 +39,7 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
 }
 
 application {
