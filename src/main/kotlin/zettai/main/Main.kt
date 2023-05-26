@@ -9,6 +9,7 @@ import org.http4k.server.Jetty
 import org.http4k.server.asServer
 import zettai.core.*
 import zettai.main.json.AddItemRequest
+import zettai.main.json.AddListRequest
 
 
 object Responses {
@@ -22,8 +23,19 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
         "/" bind Method.GET to { showHomepage() },
         "/todo/{user}/{list}" bind Method.GET to ::showList,
         "/todo/{user}/{list}" bind Method.POST to ::addNewItem,
-        "/todo/{user}" bind Method.GET to ::getUserLists
+        "/todo/{user}" bind Method.GET to ::getUserLists,
+        "/todo/{user}" bind Method.POST to ::addUserList
     )
+
+    private fun addUserList(request: Request): Response {
+        val user = request.extractUser() ?: return Responses.badRequest
+        val body = Body.auto<AddListRequest>()
+            .toLens()
+            .invoke(request)
+        val newListName = ListName.fromUntrusted(body.listName) ?: return Responses.badRequest
+        hub.createList(user, newListName)
+        return Response(Status.CREATED)
+    }
 
     override fun invoke(req: Request): Response = routes(req)
 

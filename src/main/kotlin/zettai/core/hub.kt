@@ -4,6 +4,7 @@ interface ZettaiHub {
     fun getList(user: User, listName: ListName): ToDoList?
     fun addItemToList(user: User, listName: ListName, item: ToDoItem): ToDoList?
     fun getUserLists(user: User): List<ListName>?
+    fun createList(user: User, listName: ListName)
 }
 
 typealias ToDoListFetcher = (User, ListName) -> ToDoList?
@@ -24,5 +25,9 @@ class ToDoListHub(private val fetcher: ToDoListUpdatableFetcher) : ZettaiHub {
 
     override fun getUserLists(user: User): List<ListName>? {
         return fetcher.getAll(user)
+    }
+
+    override fun createList(user: User, listName: ListName) {
+        TODO("Not yet implemented")
     }
 }

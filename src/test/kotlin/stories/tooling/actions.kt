@@ -13,6 +13,7 @@ import zettai.main.MapListFetcher
 import zettai.main.ToDoListStore
 import zettai.main.ZettaiHttpServer
 import zettai.main.json.AddItemRequest
+import zettai.main.json.AddListRequest
 import kotlin.test.fail
 
 interface ZettaiActions : DdtActions<DdtProtocol> {
@@ -23,6 +24,7 @@ interface ZettaiActions : DdtActions<DdtProtocol> {
     fun ToDoListOwner.`starts with no lists`()
     fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>)
     fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>)
+    fun createList(user: User, listName: ListName)
 }
 
 abstract class InMemoryListActions : ZettaiActions {
@@ -57,6 +59,10 @@ class DomainOnlyActions : InMemoryListActions() {
 
     override fun allUserLists(user: User): List<ListName> =
         hub.getUserLists(user) ?: fail("User not found: ${user.name}")
+
+    override fun createList(user: User, listName: ListName) {
+        hub.createList(user, listName)
+    }
 }
 
 
@@ -97,9 +103,20 @@ class HttpActions : InMemoryListActions() {
     override fun allUserLists(user: User): List<ListName> {
         val request = Request(Method.GET, withHost("/todo/${user.name}"))
         val response = client(request)
-       
+
         expectThat(response.status).isEqualTo(Status.OK)
         return Body.auto<List<ListName>>().toLens().invoke(response)
+    }
+
+    override fun createList(user: User, listName: ListName) {
+        val request = Body.auto<AddListRequest>()
+            .toLens()
+            .inject(
+                AddListRequest(listName.name),
+                Request(Method.POST, withHost("/todo/${user.name}"))
+            )
+        val response = client(request)
+        expectThat(response.status).isEqualTo(Status.CREATED)
     }
 
     override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {

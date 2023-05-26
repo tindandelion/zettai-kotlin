@@ -8,6 +8,7 @@ import stories.tooling.allActions
 class SeeTodoListDDT : ZettaiDDT(allActions) {
     val frank by NamedActor(::ToDoListOwner)
     val bob by NamedActor(::ToDoListOwner)
+    val dylan by NamedActor(::ToDoListOwner)
 
     val shoppingListName = "shopping"
     val shoppingItems = listOf("carrots", "apples", "milk")
@@ -34,6 +35,18 @@ class SeeTodoListDDT : ZettaiDDT(allActions) {
         }.thenPlay(
             frank.`cannot see #listname`(gardenListName),
             bob.`cannot see #listname`(shoppingListName)
+        )
+    }
+
+    @DDT
+    fun `users can create new lists`() = ddtScenario {
+        setUp {
+            dylan.`starts with no lists`()
+        }.thenPlay(
+            dylan.`can not see any lists`(),
+            dylan.`can create a new list called #listname`("gradening"),
+            dylan.`can create a new list called #listname`("music"),
+            dylan.`can see the lists #listNames`(setOf("gardening", "music"))
         )
     }
 }
