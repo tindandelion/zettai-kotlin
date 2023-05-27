@@ -11,12 +11,31 @@ import zettai.core.*
 import zettai.main.json.AddItemRequest
 import zettai.main.json.AddListRequest
 
-
 object Responses {
     val badRequest = Response(Status.BAD_REQUEST)
     val notFound = Response(Status.NOT_FOUND)
     fun seeOther(location: String) = Response(Status.SEE_OTHER).header("Location", location)
 }
+
+class CreateNewList(private val hub: ZettaiHub) : HttpHandler {
+    override fun invoke(request: Request): Response {
+        val user = request.extractUser() ?: return Responses.badRequest
+        val listName = extractListName(request) ?: return Responses.badRequest
+
+        val command = CreateToDoList(user, listName)
+        hub.handle(command)
+        return Response(Status.CREATED)
+    }
+
+    private fun extractListName(request: Request) =
+        Body.auto<AddListRequest>()
+            .toLens()
+            .invoke(request)
+            .let { ListName.fromUntrusted(it.listName) }
+}
+
+private fun Request.extractUser(): User? = path("user")?.let(::User)
+
 
 class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
@@ -24,18 +43,8 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
         "/todo/{user}/{list}" bind Method.GET to ::showList,
         "/todo/{user}/{list}" bind Method.POST to ::addNewItem,
         "/todo/{user}" bind Method.GET to ::getUserLists,
-        "/todo/{user}" bind Method.POST to ::addUserList
+        "/todo/{user}" bind Method.POST to CreateNewList(hub)
     )
-
-    private fun addUserList(request: Request): Response {
-        val user = request.extractUser() ?: return Responses.badRequest
-        val body = Body.auto<AddListRequest>()
-            .toLens()
-            .invoke(request)
-        val newListName = ListName.fromUntrusted(body.listName) ?: return Responses.badRequest
-        hub.createList(user, newListName)
-        return Response(Status.CREATED)
-    }
 
     override fun invoke(req: Request): Response = routes(req)
 
@@ -84,12 +93,14 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
             } ?: Responses.notFound
     }
 
-    private fun Request.extractUser(): User? = path("user")?.let(::User)
+
 }
 
 fun main() {
     val items = listOf("write chapter", "insert code", "draw diagrams")
     val list = ToDoList(ListName.fromTrusted("book"), items.map(::ToDoItem))
     val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
-    ZettaiHttpServer(ToDoListHub(MapListFetcher(lists))).asServer(Jetty(8080)).start()
+    val hub = ToDoListHub(MapListFetcher(lists), ToDoListCommandHandler(), ToDoListEventStore())
+
+    ZettaiHttpServer(hub).asServer(Jetty(8080)).start()
 }

@@ -29,7 +29,8 @@ interface ZettaiActions : DdtActions<DdtProtocol> {
 
 abstract class InMemoryListActions : ZettaiActions {
     private val lists: ToDoListStore = mutableMapOf()
-    protected val hub = ToDoListHub(MapListFetcher(lists))
+    protected val hub =
+        ToDoListHub(MapListFetcher(lists), ToDoListCommandHandler(), ToDoListEventStore())
 
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
         val userLists = lists[user] ?: mutableMapOf()
@@ -61,7 +62,7 @@ class DomainOnlyActions : InMemoryListActions() {
         hub.getUserLists(user) ?: fail("User not found: ${user.name}")
 
     override fun createList(user: User, listName: ListName) {
-        hub.createList(user, listName)
+        hub.handle(CreateToDoList(user, listName))
     }
 }
 

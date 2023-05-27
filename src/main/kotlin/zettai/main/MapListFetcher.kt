@@ -9,7 +9,7 @@ typealias ToDoListStore = MutableMap<User, MutableMap<ListName, ToDoList>>
 
 class MapListFetcher(private val store: ToDoListStore) : ToDoListUpdatableFetcher {
 
-    override fun invoke(user: User, list: ListName) = store[user]?.get(list)
+    override fun getList(user: User, listName: ListName) = store[user]?.get(listName)
 
     override fun assignListToUser(user: User, list: ToDoList): ToDoList? {
         return store.compute(user) { _, value ->
