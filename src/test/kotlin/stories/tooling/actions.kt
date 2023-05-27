@@ -24,13 +24,20 @@ interface ZettaiActions : DdtActions<DdtProtocol> {
     fun ToDoListOwner.`starts with no lists`()
     fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>)
     fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>)
-    fun createList(user: User, listName: ListName)
+    fun createList(user: User, listName: ListName): Boolean
 }
 
 abstract class InMemoryListActions : ZettaiActions {
     private val lists: ToDoListStore = mutableMapOf()
+    private val fetcher = MapListFetcher(lists)
+    private val eventStore = ToDoListEventStore()
+
     protected val hub =
-        ToDoListHub(MapListFetcher(lists), ToDoListCommandHandler(), ToDoListEventStore())
+        ToDoListHub(
+            fetcher,
+            ToDoListCommandHandler(eventStore::retrieveByName, fetcher),
+            eventStore::receiveEvents
+        )
 
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
         val userLists = lists[user] ?: mutableMapOf()
@@ -61,8 +68,8 @@ class DomainOnlyActions : InMemoryListActions() {
     override fun allUserLists(user: User): List<ListName> =
         hub.getUserLists(user) ?: fail("User not found: ${user.name}")
 
-    override fun createList(user: User, listName: ListName) {
-        hub.handle(CreateToDoList(user, listName))
+    override fun createList(user: User, listName: ListName): Boolean {
+        return hub.handle(CreateToDoList(user, listName)) != null
     }
 }
 
@@ -109,7 +116,7 @@ class HttpActions : InMemoryListActions() {
         return Body.auto<List<ListName>>().toLens().invoke(response)
     }
 
-    override fun createList(user: User, listName: ListName) {
+    override fun createList(user: User, listName: ListName): Boolean {
         val request = Body.auto<AddListRequest>()
             .toLens()
             .inject(
@@ -117,7 +124,11 @@ class HttpActions : InMemoryListActions() {
                 Request(Method.POST, withHost("/todo/${user.name}"))
             )
         val response = client(request)
-        expectThat(response.status).isEqualTo(Status.CREATED)
+        return when (response.status) {
+            Status.CREATED -> true
+            Status.BAD_REQUEST -> false
+            else -> fail("Unexpected response status: ${response.status}")
+        }
     }
 
     override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {

@@ -4,7 +4,7 @@ interface ZettaiHub {
     fun getList(user: User, listName: ListName): ToDoList?
     fun addItemToList(user: User, listName: ListName, item: ToDoItem): ToDoList?
     fun getUserLists(user: User): List<ListName>?
-    fun handle(command: ToDoListCommand)
+    fun handle(command: ToDoListCommand): ToDoListCommand?
 }
 
 interface ToDoListUpdatableFetcher {
@@ -14,19 +14,7 @@ interface ToDoListUpdatableFetcher {
 }
 
 typealias CommandHandler<Cmd, Evt> = (Cmd) -> List<Evt>?
-typealias EventPersister<E> = (List<E>) -> List<E>
-
-class ToDoListCommandHandler : CommandHandler<ToDoListCommand, ToDoListEvent> {
-    override fun invoke(cmd: ToDoListCommand): List<ToDoListEvent>? {
-        TODO("Not yet implemented")
-    }
-}
-
-class ToDoListEventStore : EventPersister<ToDoListEvent> {
-    override fun invoke(events: List<ToDoListEvent>): List<ToDoListEvent> {
-        TODO("Not yet implemented")
-    }
-}
+typealias EventPersister<Evt> = (Iterable<Evt>) -> Iterable<Evt>
 
 class ToDoListHub(
     private val fetcher: ToDoListUpdatableFetcher,
@@ -45,9 +33,8 @@ class ToDoListHub(
         return fetcher.getAll(user)
     }
 
-    override fun handle(command: ToDoListCommand) {
+    override fun handle(command: ToDoListCommand): ToDoListCommand? =
         commandHandler(command)?.let(persistEvents)?.let { command }
-    }
 }
 
 

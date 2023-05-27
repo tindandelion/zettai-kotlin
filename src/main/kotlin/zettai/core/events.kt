@@ -1,9 +1,29 @@
 package zettai.core
 
+typealias ListIdentifier = Pair<User, ListName>
+
 interface EntityEvent {
-    val id: EntityId
+    val list: ListIdentifier
 }
 
-sealed class ToDoListEvent : EntityEvent
-data class ListCreated(override val id: ToDoListId, val name: ListName) : ToDoListEvent()
-data class ItemAdded(override val id: ToDoListId, val item: ToDoItem) : ToDoListEvent()
+
+sealed class ToDoListEvent : EntityEvent {
+    abstract fun applyTo(state: ToDoListState): ToDoListState
+}
+
+data class ListCreated(override val list: ListIdentifier) :
+    ToDoListEvent() {
+    override fun applyTo(state: ToDoListState): ToDoListState {
+        return when (state) {
+            is InitialState -> ActiveToDoList(list.second, emptyList())
+            else -> state
+        }
+    }
+}
+
+data class ItemAdded(
+    override val list: ListIdentifier,
+    val item: ToDoItem
+) : ToDoListEvent() {
+    override fun applyTo(state: ToDoListState): ToDoListState = state
+}

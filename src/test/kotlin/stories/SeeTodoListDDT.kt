@@ -44,9 +44,18 @@ class SeeTodoListDDT : ZettaiDDT(allActions) {
             dylan.`starts with no lists`()
         }.thenPlay(
             dylan.`can not see any lists`(),
-            dylan.`can create a new list called #listname`("gradening"),
+            dylan.`can create a new list called #listname`("gardening"),
             dylan.`can create a new list called #listname`("music"),
             dylan.`can see the lists #listNames`(setOf("gardening", "music"))
+        )
+    }
+
+    @DDT
+    fun `users can not create duplicate lists`() = ddtScenario {
+        setUp {
+        }.thenPlay(
+            dylan.`can create a new list called #listname`("shopping"),
+            dylan.`can not create a new list called #listname`("shopping"),
         )
     }
 }

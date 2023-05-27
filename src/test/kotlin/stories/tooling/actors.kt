@@ -54,8 +54,12 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
     }
 
     fun `can create a new list called #listname`(listName: String) = step(listName) {
-        val name = ListName.fromUntrusted(listName) ?: throw AssertionError("Invalid list name")
-        createList(user, name)
+        val result = createList(user, ListName.fromTrusted(listName))
+        expectThat(result).isTrue()
+    }
+
+    fun `can not create a new list called #listname`(listName: String) = step(listName) {
+        expectThat(createList(user, ListName.fromTrusted(listName))).isFalse()
     }
 
     private val Assertion.Builder<ToDoList>.itemNames

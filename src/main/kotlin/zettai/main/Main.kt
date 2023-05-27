@@ -22,9 +22,9 @@ class CreateNewList(private val hub: ZettaiHub) : HttpHandler {
         val user = request.extractUser() ?: return Responses.badRequest
         val listName = extractListName(request) ?: return Responses.badRequest
 
-        val command = CreateToDoList(user, listName)
-        hub.handle(command)
-        return Response(Status.CREATED)
+        return hub.handle(CreateToDoList(user, listName))
+            ?.let { Response(Status.CREATED) }
+            ?: Responses.badRequest
     }
 
     private fun extractListName(request: Request) =
@@ -100,7 +100,14 @@ fun main() {
     val items = listOf("write chapter", "insert code", "draw diagrams")
     val list = ToDoList(ListName.fromTrusted("book"), items.map(::ToDoItem))
     val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
-    val hub = ToDoListHub(MapListFetcher(lists), ToDoListCommandHandler(), ToDoListEventStore())
+    val fetcher = MapListFetcher(lists)
+    val eventStore = ToDoListEventStore()
+    val hub =
+        ToDoListHub(
+            fetcher,
+            ToDoListCommandHandler(eventStore::retrieveByName, fetcher),
+            eventStore::receiveEvents
+        )
 
     ZettaiHttpServer(hub).asServer(Jetty(8080)).start()
 }
