@@ -17,7 +17,7 @@ class ToDoListCommandHandler(
     override fun invoke(cmd: ToDoListCommand): List<ToDoListEvent>? {
         return when (cmd) {
             is CreateToDoList -> cmd.execute()
-            else -> null
+            is AddToDoItem -> cmd.execute()
         }
     }
 
@@ -28,4 +28,13 @@ class ToDoListCommandHandler(
             listOf(ListCreated(user to list))
         } else null
     }
+
+    private fun AddToDoItem.execute(): List<ToDoListEvent>? {
+        val currentState = retriever(user, list)
+        return if (currentState is ActiveToDoList) {
+            readModel.addItemToList(user, list, item)
+            listOf(ItemAdded(user to list, item))
+        } else null
+    }
 }
+

@@ -1,9 +1,6 @@
 package zettai.main
 
-import zettai.core.ListName
-import zettai.core.ToDoList
-import zettai.core.ToDoListUpdatableFetcher
-import zettai.core.User
+import zettai.core.*
 
 typealias ToDoListStore = MutableMap<User, MutableMap<ListName, ToDoList>>
 
@@ -19,4 +16,9 @@ class MapListFetcher(private val store: ToDoListStore) : ToDoListUpdatableFetche
     }
 
     override fun getAll(user: User): List<ListName>? = store[user]?.keys?.toList()
+    override fun addItemToList(user: User, listName: ListName, item: ToDoItem): ToDoList? =
+        getList(user, listName)?.run {
+            val newList = addItem(item)
+            assignListToUser(user, newList)
+        }
 }

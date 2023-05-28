@@ -34,6 +34,23 @@ class CreateNewList(private val hub: ZettaiHub) : HttpHandler {
             .let { ListName.fromUntrusted(it.listName) }
 }
 
+class AddNewItem(private val hub: ZettaiHub) : HttpHandler {
+    override fun invoke(request: Request): Response {
+        val user = request.extractUser() ?: return Responses.badRequest
+        val listName = request.path("list")
+            ?.let { ListName.fromUntrusted(it) }
+            ?: return Responses.badRequest
+        val body = Body.auto<AddItemRequest>()
+            .toLens()
+            .invoke(request)
+
+        return hub.handle(AddToDoItem(user, listName, ToDoItem(body.itemName)))
+            ?.let { Responses.seeOther("/todo/${user.name}/${listName.name}") }
+            ?: Responses.notFound
+    }
+
+}
+
 private fun Request.extractUser(): User? = path("user")?.let(::User)
 
 
@@ -41,7 +58,7 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     val routes = routes(
         "/" bind Method.GET to { showHomepage() },
         "/todo/{user}/{list}" bind Method.GET to ::showList,
-        "/todo/{user}/{list}" bind Method.POST to ::addNewItem,
+        "/todo/{user}/{list}" bind Method.POST to AddNewItem(hub),
         "/todo/{user}" bind Method.GET to ::getUserLists,
         "/todo/{user}" bind Method.POST to CreateNewList(hub)
     )
@@ -58,20 +75,6 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
             </html>
             """.trimIndent()
     )
-
-    private fun addNewItem(request: Request): Response {
-        val user = request.extractUser() ?: return Responses.badRequest
-        val listName = request.path("list")
-            ?.let { ListName.fromUntrusted(it) }
-            ?: return Responses.badRequest
-        val body = Body.auto<AddItemRequest>()
-            .toLens()
-            .invoke(request)
-
-        return hub.addItemToList(user, listName, ToDoItem(body.itemName))
-            ?.let { Responses.seeOther("/todo/${user.name}/${it.name.name}") }
-            ?: Responses.notFound
-    }
 
     private fun showList(req: Request): Response {
         val user = req.extractUser() ?: return Responses.badRequest

@@ -30,7 +30,7 @@ interface ZettaiActions : DdtActions<DdtProtocol> {
 abstract class InMemoryListActions : ZettaiActions {
     private val lists: ToDoListStore = mutableMapOf()
     private val fetcher = MapListFetcher(lists)
-    private val eventStore = ToDoListEventStore()
+    protected val eventStore = ToDoListEventStore()
 
     protected val hub =
         ToDoListHub(
@@ -40,10 +40,9 @@ abstract class InMemoryListActions : ZettaiActions {
         )
 
     override fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>) {
-        val userLists = lists[user] ?: mutableMapOf()
-        val newList = ToDoList(ListName.fromTrusted(listName), items.map(::ToDoItem))
-        userLists[newList.name] = newList
-        lists[user] = userLists
+        val name = ListName.fromTrusted(listName)
+        hub.handle(CreateToDoList(user, name))
+        items.map(::ToDoItem).forEach { hub.handle(AddToDoItem(user, name, it)) }
     }
 
     override fun ToDoListOwner.`starts with some lists`(expectedLists: Map<String, List<String>>) {
@@ -57,13 +56,18 @@ abstract class InMemoryListActions : ZettaiActions {
 
 class DomainOnlyActions : InMemoryListActions() {
     override val protocol: DdtProtocol = DomainOnly
-    override fun prepare(): DomainSetUp = Ready
+    override fun prepare(): DomainSetUp {
+        eventStore.clear()
+        return Ready
+    }
 
     override fun getToDoList(user: User, listName: ListName): ToDoList? =
         hub.getList(user, listName)
 
-    override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? =
-        hub.addItemToList(user, listName, item)
+    override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {
+        hub.handle(AddToDoItem(user, listName, item))
+        return hub.getList(user, listName)
+    }
 
     override fun allUserLists(user: User): List<ListName> =
         hub.getUserLists(user) ?: fail("User not found: ${user.name}")
@@ -82,6 +86,7 @@ class HttpActions : InMemoryListActions() {
     override val protocol: DdtProtocol = Http("local")
 
     override fun prepare(): DomainSetUp {
+        eventStore.clear()
         server.start()
         return Ready
     }

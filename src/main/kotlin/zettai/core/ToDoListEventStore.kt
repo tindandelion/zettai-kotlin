@@ -3,12 +3,16 @@ package zettai.core
 private class EventStreamer {
     var events: List<ToDoListEvent> = emptyList()
 
-    fun store(newEvents: Iterable<ToDoListEvent>) {
+    fun append(newEvents: Iterable<ToDoListEvent>) {
         events += newEvents
     }
 
     fun getEvents(user: User, listName: ListName): Iterable<ToDoListEvent> =
         (user to listName).let { events.filter { evt -> evt.list == it } }
+
+    fun clear() {
+        events = emptyList()
+    }
 }
 
 
@@ -21,7 +25,11 @@ class ToDoListEventStore {
     }
 
     fun receiveEvents(events: Iterable<ToDoListEvent>): Iterable<ToDoListEvent> {
-        streamer.store(events)
+        streamer.append(events)
         return events
+    }
+
+    fun clear() {
+        streamer.clear()
     }
 }
