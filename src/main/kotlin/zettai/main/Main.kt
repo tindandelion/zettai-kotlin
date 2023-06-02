@@ -82,21 +82,18 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
             req.path("list")?.let { ListName.fromUntrusted(it) } ?: return Responses.badRequest
 
         return hub.getList(user, list)
-            ?.let { Body.auto<ToDoList>().toLens().inject(it, Response(Status.OK)) }
-            ?: Responses.notFound
+            .transform { Body.auto<ToDoList>().toLens().inject(it, Response(Status.OK)) }
+            .recover { Responses.notFound }
     }
 
     private fun getUserLists(request: Request): Response {
         val user = request.extractUser() ?: return Responses.badRequest
-        return hub.getUserLists(user)
-            ?.let {
-                Body.auto<List<ListName>>()
-                    .toLens()
-                    .inject(it, Response(Status.OK))
-            } ?: Responses.notFound
+        return hub.getUserLists(user).transform {
+            Body.auto<List<ListName>>()
+                .toLens()
+                .inject(it, Response(Status.OK))
+        }.recover { Responses.notFound }
     }
-
-
 }
 
 fun main() {

@@ -1,8 +1,13 @@
 package zettai.core
 
+sealed class ZettaiError : OutcomeError
+data class InvalidRequest(override val msg: String) : ZettaiError()
+
+typealias ZettaiOutcome<T> = Outcome<ZettaiError, T>
+
 interface ZettaiHub {
-    fun getList(user: User, listName: ListName): ToDoList?
-    fun getUserLists(user: User): List<ListName>?
+    fun getList(user: User, listName: ListName): ZettaiOutcome<ToDoList>
+    fun getUserLists(user: User): ZettaiOutcome<List<ListName>>
     fun handle(command: ToDoListCommand): ToDoListCommand?
 }
 
@@ -21,10 +26,11 @@ class ToDoListHub(
     private val commandHandler: CommandHandler<ToDoListCommand, ToDoListEvent>,
     private val persistEvents: EventPersister<ToDoListEvent>
 ) : ZettaiHub {
-    override fun getList(user: User, listName: ListName) = fetcher.getList(user, listName)
+    override fun getList(user: User, listName: ListName) =
+        fetcher.getList(user, listName).failIfNull(InvalidRequest("List not found"))
 
-    override fun getUserLists(user: User): List<ListName>? {
-        return fetcher.getAll(user)
+    override fun getUserLists(user: User): ZettaiOutcome<List<ListName>> {
+        return fetcher.getAll(user).failIfNull(InvalidRequest("No lists found"))
     }
 
     override fun handle(command: ToDoListCommand): ToDoListCommand? =

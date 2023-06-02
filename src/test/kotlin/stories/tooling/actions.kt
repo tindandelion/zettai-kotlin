@@ -17,9 +17,9 @@ import zettai.main.json.AddListRequest
 import kotlin.test.fail
 
 interface ZettaiActions : DdtActions<DdtProtocol> {
-    fun getToDoList(user: User, listName: ListName): ToDoList?
+    fun getToDoList(user: User, listName: ListName): ZettaiOutcome<ToDoList>
     fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList?
-    fun allUserLists(user: User): List<ListName>
+    fun allUserLists(user: User): ZettaiOutcome<List<ListName>>
 
     fun ToDoListOwner.`starts with no lists`()
     fun ToDoListOwner.`starts with a list`(listName: String, items: List<String>)
@@ -61,16 +61,16 @@ class DomainOnlyActions : InMemoryListActions() {
         return Ready
     }
 
-    override fun getToDoList(user: User, listName: ListName): ToDoList? =
+    override fun getToDoList(user: User, listName: ListName): ZettaiOutcome<ToDoList> =
         hub.getList(user, listName)
 
     override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {
         hub.handle(AddToDoItem(user, listName, item))
-        return hub.getList(user, listName)
+        return hub.getList(user, listName).orNull()
     }
 
-    override fun allUserLists(user: User): List<ListName> =
-        hub.getUserLists(user) ?: fail("User not found: ${user.name}")
+    override fun allUserLists(user: User): ZettaiOutcome<List<ListName>> =
+        hub.getUserLists(user)
 
     override fun createList(user: User, listName: ListName): Boolean {
         return hub.handle(CreateToDoList(user, listName)) != null
@@ -93,8 +93,8 @@ class HttpActions : InMemoryListActions() {
 
     override fun tearDown(): HttpActions = also { server.stop() }
 
-    override fun getToDoList(user: User, listName: ListName): ToDoList? {
-        return fetchListFromUrl("/todo/${user.name}/${listName.name}")
+    override fun getToDoList(user: User, listName: ListName): ZettaiOutcome<ToDoList> {
+        return fetchListFromUrl("/todo/${user.name}/${listName.name}").failIfNull(InvalidRequest("list not found"))
     }
 
     override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {
@@ -113,12 +113,12 @@ class HttpActions : InMemoryListActions() {
         return fetchListFromUrl(listUrl) ?: fail("List ${listName.name} not found")
     }
 
-    override fun allUserLists(user: User): List<ListName> {
+    override fun allUserLists(user: User): ZettaiOutcome<List<ListName>> {
         val request = Request(Method.GET, withHost("/todo/${user.name}"))
         val response = client(request)
 
         expectThat(response.status).isEqualTo(Status.OK)
-        return Body.auto<List<ListName>>().toLens().invoke(response)
+        return Body.auto<List<ListName>>().toLens().invoke(response).asSuccess()
     }
 
     override fun createList(user: User, listName: ListName): Boolean {
