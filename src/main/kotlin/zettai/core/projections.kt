@@ -66,28 +66,9 @@ data class ConcurrentMapProjection<Row, Evt : EntityEvent>(
     }
 }
 
-data class ToDoListProjectionRow(val user: User, val list: ToDoList) {
-    fun addItem(item: ToDoItem): ToDoListProjectionRow =
-        copy(list = list.addItem(item))
-}
-
-fun eventProjector(e: ToDoListEvent): List<DeltaRow<ToDoListProjectionRow>> {
-    val rowId = "${e.list.first.name}-${e.list.second.name}"
-    val (user, listName) = e.list
-    return listOf(
-        when (e) {
-            is ListCreated -> CreateRow(
-                RowId(rowId),
-                ToDoListProjectionRow(user, ToDoList(listName, emptyList()))
-            )
-
-            is ItemAdded -> UpdateRow(RowId(rowId)) { addItem(e.item) }
-        }
-    )
-}
 
 class ToDoListProjection(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
-    InMemoryProjection<ToDoListProjectionRow, ToDoListEvent>
+    InMemoryProjection<ToDoListProjection.Row, ToDoListEvent>
     by ConcurrentMapProjection(eventFetcher, ::eventProjector) {
 
     fun findAll(user: User): List<ListName> =
@@ -98,24 +79,44 @@ class ToDoListProjection(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
     }
 
     private fun rowsByUser(user: User) = allRows().values.filter { it.user == user }
-}
 
-data class ProjectionQuery<T>(val projections: Set<Projection<*, *>>, val runner: () -> T) {
-    fun runIt(): T {
-        projections.forEach { p -> p.update() }
-        return runner()
+    companion object {
+        private fun eventProjector(e: ToDoListEvent): List<DeltaRow<Row>> {
+            val rowId = "${e.list.first.name}-${e.list.second.name}"
+            val (user, listName) = e.list
+            return listOf(
+                when (e) {
+                    is ListCreated -> CreateRow(
+                        RowId(rowId),
+                        Row(user, ToDoList(listName, emptyList()))
+                    )
+
+                    is ItemAdded -> UpdateRow(RowId(rowId)) { addItem(e.item) }
+                }
+            )
+        }
+    }
+
+    private data class Row(val user: User, val list: ToDoList) {
+        fun addItem(item: ToDoItem): Row =
+            copy(list = list.addItem(item))
     }
 }
 
+data class ProjectionQuery<T>(val projections: Set<Projection<*, *>>, val runner: () -> T) {
+    fun runIt(): T = runner
+        .also { projections.forEach { p -> p.update() } }
+        .invoke()
+}
+
 interface QueryRunner<Self : QueryRunner<Self>> {
-    operator fun <T> invoke(f: Self.() -> T): ProjectionQuery<T>
+    operator fun <R> invoke(f: Self.() -> R): ProjectionQuery<R>
 }
 
 class ToDoListQueryRunner(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
     QueryRunner<ToDoListQueryRunner> {
     internal val listProjection = ToDoListProjection(eventFetcher)
 
-    override fun <Result> invoke(f: ToDoListQueryRunner.() -> Result): ProjectionQuery<Result> {
-        return ProjectionQuery(setOf(listProjection)) { f(this) }
-    }
+    override fun <R> invoke(f: ToDoListQueryRunner.() -> R): ProjectionQuery<R> =
+        ProjectionQuery(setOf(listProjection)) { f(this) }
 }
