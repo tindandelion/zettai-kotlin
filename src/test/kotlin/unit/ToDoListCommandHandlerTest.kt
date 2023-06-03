@@ -3,10 +3,9 @@ package unit
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
-import strikt.assertions.isNotNull
-import strikt.assertions.isNull
 import zettai.core.*
 import zettai.main.MapListFetcher
+import kotlin.test.fail
 
 class ToDoListCommandHandlerTest {
     private val store = ToDoListEventStore()
@@ -18,21 +17,18 @@ class ToDoListCommandHandlerTest {
     @Test
     fun `creates a new todo list`() {
         val cmd = CreateToDoList(user, listName)
-        val events = handle(cmd)
-        expectThat(events)
-            .isNotNull()
-            .containsExactly(ListCreated(cmd.user to cmd.list))
+        val events = handle(cmd).onFailure { fail() }
+        expectThat(events).containsExactly(ListCreated(cmd.user to cmd.list))
     }
 
     @Test
     fun `fails to create a duplicate list`() {
         val cmd = CreateToDoList(user, listName)
         handle(cmd)
-
-        val duplicate = handle(cmd)
-        expectThat(duplicate).isNull()
+        handle(cmd).onFailure { return }
+        fail("Expected a command to fail")
     }
 
     private fun handle(cmd: CreateToDoList) =
-        handler(cmd)?.let { store.receiveEvents(it) }
+        handler(cmd).transform { store.receiveEvents(it) }
 }

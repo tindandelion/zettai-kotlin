@@ -19,7 +19,8 @@ interface ToDoListUpdatableFetcher {
     fun addItemToList(user: User, listName: ListName, item: ToDoItem): ToDoList?
 }
 
-typealias CommandHandler<Cmd, Evt> = (Cmd) -> List<Evt>?
+typealias CommandOutcome<Evt> = ZettaiOutcome<List<Evt>>
+typealias CommandHandler<Cmd, Evt> = (Cmd) -> CommandOutcome<Evt>
 typealias EventPersister<Evt> = (Iterable<Evt>) -> Iterable<Evt>
 
 class ToDoListHub(
@@ -35,9 +36,7 @@ class ToDoListHub(
     }
 
     override fun handle(command: ToDoListCommand): ZettaiOutcome<ToDoListCommand> =
-        commandHandler(command)?.let(persistEvents)
-            .failIfNull(CommandError("Command error"))
-            .transform { command }
+        commandHandler(command).transform(persistEvents).transform { command }
 }
 
 
