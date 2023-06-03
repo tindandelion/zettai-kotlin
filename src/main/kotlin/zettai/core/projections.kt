@@ -90,7 +90,7 @@ class ToDoListProjection(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
     InMemoryProjection<ToDoListProjectionRow, ToDoListEvent>
     by ConcurrentMapProjection(eventFetcher, ::eventProjector) {
 
-    fun findAll(user: User): List<ListName>? =
+    fun findAll(user: User): List<ListName> =
         allRows().values
             .filter { it.user == user }
             .map { it.list.name }
