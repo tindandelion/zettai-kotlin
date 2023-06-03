@@ -11,20 +11,23 @@ import zettai.core.*
 import zettai.main.json.AddItemRequest
 import zettai.main.json.AddListRequest
 
+data class InvalidInput(override val msg: String) : OutcomeError
+
 object Responses {
-    val badRequest = Response(Status.BAD_REQUEST)
     val notFound = Response(Status.NOT_FOUND)
     fun seeOther(location: String) = Response(Status.SEE_OTHER).header("Location", location)
+    fun badRequest(error: InvalidInput): Response =
+        Response(Status.BAD_REQUEST).also { it.body(error.msg) }
 }
 
 class CreateNewList(private val hub: ZettaiHub) : HttpHandler {
     override fun invoke(request: Request): Response {
-        val user = request.extractUser() ?: return Responses.badRequest
-        val listName = extractListName(request) ?: return Responses.badRequest
+        val user = request.userFromPath().onFailure { return Responses.badRequest(it) }
+        val listName = extractListName(request).onFailure { return Responses.badRequest(it) }
 
         return hub.handle(CreateToDoList(user, listName))
-            ?.let { Response(Status.CREATED) }
-            ?: Responses.badRequest
+            .transform { Response(Status.CREATED) }
+            .recover { Responses.badRequest(InvalidInput("Unable to create list")) }
     }
 
     private fun extractListName(request: Request) =
@@ -32,26 +35,33 @@ class CreateNewList(private val hub: ZettaiHub) : HttpHandler {
             .toLens()
             .invoke(request)
             .let { ListName.fromUntrusted(it.listName) }
+            .failIfNull(InvalidInput("Invalid list name"))
 }
 
 class AddNewItem(private val hub: ZettaiHub) : HttpHandler {
     override fun invoke(request: Request): Response {
-        val user = request.extractUser() ?: return Responses.badRequest
-        val listName = request.path("list")
-            ?.let { ListName.fromUntrusted(it) }
-            ?: return Responses.badRequest
+        val user = request.userFromPath().onFailure { return Responses.badRequest(it) }
+        val listName = request.listNameFromPath().onFailure { return Responses.badRequest(it) }
         val body = Body.auto<AddItemRequest>()
             .toLens()
             .invoke(request)
 
         return hub.handle(AddToDoItem(user, listName, ToDoItem(body.itemName)))
-            ?.let { Responses.seeOther("/todo/${user.name}/${listName.name}") }
-            ?: Responses.notFound
+            .transform { Responses.seeOther("/todo/${user.name}/${listName.name}") }
+            .recover { Responses.notFound }
     }
 
 }
 
-private fun Request.extractUser(): User? = path("user")?.let(::User)
+private fun Request.userFromPath(): Outcome<InvalidInput, User> =
+    path("user")
+        .failIfNull(InvalidInput("Invalid user"))
+        .transform(::User)
+
+private fun Request.listNameFromPath(): Outcome<InvalidInput, ListName> {
+    val untrustedName = path("list") ?: return InvalidInput("List name not provided").asFailure()
+    return ListName.fromUntrusted(untrustedName).failIfNull(InvalidInput("Invalid list name"))
+}
 
 
 class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
@@ -77,22 +87,21 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
     )
 
     private fun showList(req: Request): Response {
-        val user = req.extractUser() ?: return Responses.badRequest
-        val list =
-            req.path("list")?.let { ListName.fromUntrusted(it) } ?: return Responses.badRequest
-
+        val user = req.userFromPath().onFailure { return Responses.badRequest(it) }
+        val list = req.listNameFromPath().onFailure { return Responses.badRequest(it) }
         return hub.getList(user, list)
             .transform { Body.auto<ToDoList>().toLens().inject(it, Response(Status.OK)) }
             .recover { Responses.notFound }
     }
 
     private fun getUserLists(request: Request): Response {
-        val user = request.extractUser() ?: return Responses.badRequest
-        return hub.getUserLists(user).transform {
-            Body.auto<List<ListName>>()
-                .toLens()
-                .inject(it, Response(Status.OK))
-        }.recover { Responses.notFound }
+        val user = request.userFromPath().onFailure { return Responses.badRequest(it) }
+        return hub.getUserLists(user)
+            .transform {
+                Body.auto<List<ListName>>()
+                    .toLens()
+                    .inject(it, Response(Status.OK))
+            }.recover { Responses.notFound }
     }
 }
 

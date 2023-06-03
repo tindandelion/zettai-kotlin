@@ -73,7 +73,7 @@ class DomainOnlyActions : InMemoryListActions() {
         hub.getUserLists(user)
 
     override fun createList(user: User, listName: ListName): Boolean {
-        return hub.handle(CreateToDoList(user, listName)) != null
+        return hub.handle(CreateToDoList(user, listName)).transform { true }.recover { false }
     }
 }
 
@@ -94,7 +94,7 @@ class HttpActions : InMemoryListActions() {
     override fun tearDown(): HttpActions = also { server.stop() }
 
     override fun getToDoList(user: User, listName: ListName): ZettaiOutcome<ToDoList> {
-        return fetchListFromUrl("/todo/${user.name}/${listName.name}").failIfNull(InvalidRequest("list not found"))
+        return fetchListFromUrl("/todo/${user.name}/${listName.name}").failIfNull(ListNotFound("list not found"))
     }
 
     override fun addListItem(user: User, listName: ListName, item: ToDoItem): ToDoList? {

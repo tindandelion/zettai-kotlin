@@ -20,7 +20,7 @@ data class ToDoListOwner(override val name: String) : DdtActor<ZettaiActions>() 
 
     fun `cannot see #listname`(listName: String) = step(listName) {
         val outcome = getToDoList(user, ListName.fromTrusted(listName)).expectFailure()
-        expectThat(outcome).isA<InvalidRequest>()
+        expectThat(outcome).isA<ListNotFound>()
     }
 
     fun `can add #item to #listname`(itemDesc: String, listName: String) =

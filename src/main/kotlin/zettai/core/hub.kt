@@ -1,14 +1,15 @@
 package zettai.core
 
 sealed class ZettaiError : OutcomeError
-data class InvalidRequest(override val msg: String) : ZettaiError()
+data class ListNotFound(override val msg: String) : ZettaiError()
+data class CommandError(override val msg: String) : ZettaiError()
 
 typealias ZettaiOutcome<T> = Outcome<ZettaiError, T>
 
 interface ZettaiHub {
     fun getList(user: User, listName: ListName): ZettaiOutcome<ToDoList>
     fun getUserLists(user: User): ZettaiOutcome<List<ListName>>
-    fun handle(command: ToDoListCommand): ToDoListCommand?
+    fun handle(command: ToDoListCommand): ZettaiOutcome<ToDoListCommand>
 }
 
 interface ToDoListUpdatableFetcher {
@@ -27,14 +28,16 @@ class ToDoListHub(
     private val persistEvents: EventPersister<ToDoListEvent>
 ) : ZettaiHub {
     override fun getList(user: User, listName: ListName) =
-        fetcher.getList(user, listName).failIfNull(InvalidRequest("List not found"))
+        fetcher.getList(user, listName).failIfNull(ListNotFound("List not found"))
 
     override fun getUserLists(user: User): ZettaiOutcome<List<ListName>> {
-        return fetcher.getAll(user).failIfNull(InvalidRequest("No lists found"))
+        return fetcher.getAll(user).failIfNull(ListNotFound("No lists found"))
     }
 
-    override fun handle(command: ToDoListCommand): ToDoListCommand? =
-        commandHandler(command)?.let(persistEvents)?.let { command }
+    override fun handle(command: ToDoListCommand): ZettaiOutcome<ToDoListCommand> =
+        commandHandler(command)?.let(persistEvents)
+            .failIfNull(CommandError("Command error"))
+            .transform { command }
 }
 
 
