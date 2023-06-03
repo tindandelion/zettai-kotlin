@@ -70,3 +70,28 @@ data class ToDoListProjectionRow(val user: User, val list: ToDoList) {
     fun addItem(item: ToDoItem): ToDoListProjectionRow =
         copy(list = list.addItem(item))
 }
+
+fun eventProjector(e: ToDoListEvent): List<DeltaRow<ToDoListProjectionRow>> {
+    val rowId = "${e.list.first.name}-${e.list.second.name}"
+    val (user, listName) = e.list
+    return listOf(
+        when (e) {
+            is ListCreated -> CreateRow(
+                RowId(rowId),
+                ToDoListProjectionRow(user, ToDoList(listName, emptyList()))
+            )
+
+            is ItemAdded -> UpdateRow(RowId(rowId)) { addItem(e.item) }
+        }
+    )
+}
+
+class ToDoListProjection(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
+    InMemoryProjection<ToDoListProjectionRow, ToDoListEvent>
+    by ConcurrentMapProjection(eventFetcher, ::eventProjector) {
+
+    fun findAll(user: User): List<ListName>? =
+        allRows().values
+            .filter { it.user == user }
+            .map { it.list.name }
+}
