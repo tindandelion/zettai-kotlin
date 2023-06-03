@@ -106,15 +106,11 @@ class ZettaiHttpServer(private val hub: ZettaiHub) : HttpHandler {
 }
 
 fun main() {
-    val items = listOf("write chapter", "insert code", "draw diagrams")
-    val list = ToDoList(ListName.fromTrusted("book"), items.map(::ToDoItem))
-    val lists = mutableMapOf(User("uberto") to mutableMapOf(list.name to list))
-    val fetcher = MapListFetcher(lists)
     val eventStore = ToDoListEventStore()
     val hub =
         ToDoListHub(
-            fetcher,
-            ToDoListCommandHandler(eventStore::retrieveByName, fetcher),
+            ToDoListQueryRunner(eventStore::fetchEvents),
+            ToDoListCommandHandler(eventStore::retrieveByName),
             eventStore::receiveEvents
         )
 

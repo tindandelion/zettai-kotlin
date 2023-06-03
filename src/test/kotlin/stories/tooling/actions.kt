@@ -9,8 +9,6 @@ import org.http4k.server.asServer
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import zettai.core.*
-import zettai.main.MapListFetcher
-import zettai.main.ToDoListStore
 import zettai.main.ZettaiHttpServer
 import zettai.main.json.AddItemRequest
 import zettai.main.json.AddListRequest
@@ -28,14 +26,12 @@ interface ZettaiActions : DdtActions<DdtProtocol> {
 }
 
 abstract class InMemoryListActions : ZettaiActions {
-    private val lists: ToDoListStore = mutableMapOf()
-    private val fetcher = MapListFetcher(lists)
-    protected val eventStore = ToDoListEventStore()
+    private val eventStore = ToDoListEventStore()
 
     protected val hub =
         ToDoListHub(
-            fetcher,
-            ToDoListCommandHandler(eventStore::retrieveByName, fetcher),
+            ToDoListQueryRunner(eventStore::fetchEvents),
+            ToDoListCommandHandler(eventStore::retrieveByName),
             eventStore::receiveEvents
         )
 
@@ -50,16 +46,12 @@ abstract class InMemoryListActions : ZettaiActions {
     }
 
     override fun ToDoListOwner.`starts with no lists`() {
-        lists[user] = mutableMapOf()
     }
 }
 
 class DomainOnlyActions : InMemoryListActions() {
     override val protocol: DdtProtocol = DomainOnly
-    override fun prepare(): DomainSetUp {
-        eventStore.clear()
-        return Ready
-    }
+    override fun prepare(): DomainSetUp = Ready
 
     override fun getToDoList(user: User, listName: ListName): ZettaiOutcome<ToDoList> =
         hub.getList(user, listName)
@@ -86,7 +78,6 @@ class HttpActions : InMemoryListActions() {
     override val protocol: DdtProtocol = Http("local")
 
     override fun prepare(): DomainSetUp {
-        eventStore.clear()
         server.start()
         return Ready
     }
@@ -164,6 +155,6 @@ class HttpActions : InMemoryListActions() {
 
 }
 
-val allActions = setOf(DomainOnlyActions(), HttpActions())
+fun allActions() = setOf(DomainOnlyActions(), HttpActions())
 typealias ZettaiDDT = DomainDrivenTest<ZettaiActions>
 

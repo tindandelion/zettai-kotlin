@@ -4,13 +4,12 @@ import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import zettai.core.*
-import zettai.main.MapListFetcher
 import kotlin.test.fail
 
 class ToDoListCommandHandlerTest {
     private val store = ToDoListEventStore()
     private val handler =
-        ToDoListCommandHandler(store::retrieveByName, MapListFetcher(mutableMapOf()))
+        ToDoListCommandHandler(store::retrieveByName)
     private val user = User("alice")
     private val listName = ListName.fromTrusted("gardening")
 

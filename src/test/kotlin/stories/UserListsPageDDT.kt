@@ -5,7 +5,7 @@ import stories.tooling.ToDoListOwner
 import stories.tooling.ZettaiDDT
 import stories.tooling.allActions
 
-class UserListsPageDDT : ZettaiDDT(allActions) {
+class UserListsPageDDT : ZettaiDDT(allActions()) {
     val carol by NamedActor(::ToDoListOwner)
     val emma by NamedActor(::ToDoListOwner)
 

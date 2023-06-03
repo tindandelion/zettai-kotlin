@@ -5,7 +5,7 @@ import stories.tooling.ToDoListOwner
 import stories.tooling.ZettaiDDT
 import stories.tooling.allActions
 
-class SeeTodoListDDT : ZettaiDDT(allActions) {
+class SeeTodoListDDT : ZettaiDDT(allActions()) {
     val frank by NamedActor(::ToDoListOwner)
     val bob by NamedActor(::ToDoListOwner)
     val dylan by NamedActor(::ToDoListOwner)

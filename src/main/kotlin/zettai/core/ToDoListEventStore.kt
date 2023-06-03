@@ -10,9 +10,8 @@ private class EventStreamer {
     fun getEvents(user: User, listName: ListName): Iterable<ToDoListEvent> =
         (user to listName).let { events.filter { evt -> evt.list == it } }
 
-    fun clear() {
-        events = emptyList()
-    }
+    fun fetchFrom(firstEventId: Int): Sequence<ToDoListEvent> =
+        events.asSequence().drop(firstEventId)
 }
 
 
@@ -29,7 +28,9 @@ class ToDoListEventStore {
         return events
     }
 
-    fun clear() {
-        streamer.clear()
+    fun fetchEvents(eventSeq: EventSeq): Sequence<StoredEvent<ToDoListEvent>> {
+        val nextEventId = eventSeq.progressive + 1
+        return streamer.fetchFrom(nextEventId)
+            .mapIndexed { index, event -> StoredEvent(EventSeq(nextEventId + index), event) }
     }
 }

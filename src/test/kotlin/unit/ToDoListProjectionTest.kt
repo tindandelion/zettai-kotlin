@@ -16,10 +16,9 @@ class ToDoListProjectionTest {
             ListCreated(user to listName2),
             ListCreated(User("kevin") to ListName.fromTrusted("working"))
         )
-
-        val projection = ToDoListProjection(simpleEventFetcher(events))
-        projection.update()
-        expectThat(projection.findAll(user)).isEqualTo(listOf(listName1, listName2))
+        val runner = ToDoListQueryRunner(simpleEventFetcher(events))
+        val result = runner { listProjection.findAll(user) }.runIt()
+        expectThat(result).isEqualTo(listOf(listName1, listName2))
     }
 
     private fun simpleEventFetcher(events: List<ToDoListEvent>): FetchStoredEvents<ToDoListEvent> =

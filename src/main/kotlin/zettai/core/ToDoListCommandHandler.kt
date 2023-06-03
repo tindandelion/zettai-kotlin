@@ -12,8 +12,7 @@ data class InconsistentListState(override val msg: String) : ZettaiError()
 typealias ToDoListRetriever = (User, ListName) -> ToDoListState?
 
 class ToDoListCommandHandler(
-    private val retriever: ToDoListRetriever,
-    private val readModel: ToDoListUpdatableFetcher
+    private val retriever: ToDoListRetriever
 ) :
     CommandHandler<ToDoListCommand, ToDoListEvent> {
     override fun invoke(cmd: ToDoListCommand): CommandOutcome<ToDoListEvent> {
@@ -26,17 +25,15 @@ class ToDoListCommandHandler(
     private fun CreateToDoList.execute(): CommandOutcome<ToDoListEvent> {
         val currentState = retriever(user, list)
         return if (currentState == InitialState) {
-            readModel.assignListToUser(user, ToDoList(list, emptyList()))
             ListCreated(user to list).asCommandSuccess()
         } else InconsistentListState("Unable to create list").asFailure()
     }
 
     private fun AddToDoItem.execute(): CommandOutcome<ToDoListEvent> {
         val currentState = retriever(user, list)
-        return if (currentState is ActiveToDoList) {
-            readModel.addItemToList(user, list, item)
+        return if (currentState is ActiveToDoList)
             ItemAdded(user to list, item).asCommandSuccess()
-        } else InconsistentListState("Unable to add item to the list").asFailure()
+        else InconsistentListState("Unable to add item to the list").asFailure()
     }
 
     private fun ToDoListEvent.asCommandSuccess(): CommandOutcome<ToDoListEvent> =

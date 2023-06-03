@@ -91,7 +91,31 @@ class ToDoListProjection(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
     by ConcurrentMapProjection(eventFetcher, ::eventProjector) {
 
     fun findAll(user: User): List<ListName> =
-        allRows().values
-            .filter { it.user == user }
-            .map { it.list.name }
+        rowsByUser(user).map { it.list.name }
+
+    fun findList(user: User, listName: ListName): ToDoList? {
+        return rowsByUser(user).find { it.list.name == listName }?.list
+    }
+
+    private fun rowsByUser(user: User) = allRows().values.filter { it.user == user }
+}
+
+data class ProjectionQuery<T>(val projections: Set<Projection<*, *>>, val runner: () -> T) {
+    fun runIt(): T {
+        projections.forEach { p -> p.update() }
+        return runner()
+    }
+}
+
+interface QueryRunner<Self : QueryRunner<Self>> {
+    operator fun <T> invoke(f: Self.() -> T): ProjectionQuery<T>
+}
+
+class ToDoListQueryRunner(eventFetcher: FetchStoredEvents<ToDoListEvent>) :
+    QueryRunner<ToDoListQueryRunner> {
+    internal val listProjection = ToDoListProjection(eventFetcher)
+
+    override fun <Result> invoke(f: ToDoListQueryRunner.() -> Result): ProjectionQuery<Result> {
+        return ProjectionQuery(setOf(listProjection)) { f(this) }
+    }
 }
