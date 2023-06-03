@@ -2,7 +2,6 @@ package zettai.core
 
 sealed class ZettaiError : OutcomeError
 data class ListNotFound(override val msg: String) : ZettaiError()
-data class CommandError(override val msg: String) : ZettaiError()
 
 typealias ZettaiOutcome<T> = Outcome<ZettaiError, T>
 
